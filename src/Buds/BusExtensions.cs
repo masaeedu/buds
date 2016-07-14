@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using AgentAutomation.PeerCooperation.Messages;
+using Buds.Messages;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public static class BusExtensions
     {

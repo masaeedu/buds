@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using AgentAutomation.PeerCooperation.Messages;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public static class SerializationExtensions
     {

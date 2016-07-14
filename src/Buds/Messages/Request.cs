@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace AgentAutomation.PeerCooperation.Messages
+namespace Buds.Messages
 {
     public abstract class Request : Message, IRequest<Response>
     {
