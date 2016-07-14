@@ -9,6 +9,7 @@ using NetMQ.Sockets;
 using System.Reactive;
 using System.Reactive.Subjects;
 using AgentAutomation.PeerCooperation.Messages;
+using System.Reflection;
 
 namespace AgentAutomation.PeerCooperation
 {
@@ -106,7 +107,7 @@ namespace AgentAutomation.PeerCooperation
             while (type != null)
             {
                 hierarchy.Push(type);
-                type = type.BaseType;
+                type = type.GetTypeInfo().BaseType;
             }
 
             return hierarchy;
