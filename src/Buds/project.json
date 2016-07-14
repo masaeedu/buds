@@ -12,5 +12,10 @@
     "netstandard1.3": {
       "imports": "dnxcore50"
     }
+  },
+  "scripts": {
+    "postcompile": [
+      "dotnet pack --no-build --configuration %compile:Configuration%"
+    ]
   }
 }
