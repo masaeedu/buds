@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using System.Reflection;
 using System.Text;
+using Buds.Messages;
 using NetMQ;
 using NetMQ.Sockets;
-using System.Reactive;
-using System.Reactive.Subjects;
-using AgentAutomation.PeerCooperation.Messages;
-using System.Reflection;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public class FeedRegistry : IFeedRegistry, IDisposable
     {

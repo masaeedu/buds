@@ -1,13 +1,10 @@
-﻿using AgentAutomation.PeerCooperation;
-using System;
-using System.Linq;
+﻿using System;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using AgentAutomation.PeerCooperation.Messages;
+using Buds.Messages;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public class Bus : IServiceBus, IDisposable
     {

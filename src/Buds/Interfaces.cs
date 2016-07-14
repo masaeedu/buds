@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Reactive;
 using System.Threading.Tasks;
-using AgentAutomation.PeerCooperation.Messages;
+using Buds.Messages;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public interface IRepresentNode
     {

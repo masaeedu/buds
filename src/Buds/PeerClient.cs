@@ -4,11 +4,11 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using AgentAutomation.PeerCooperation.Messages;
+using Buds.Messages;
 using NetMQ;
 using NetMQ.Sockets;
 
-namespace AgentAutomation.PeerCooperation
+namespace Buds
 {
     public class FeedClient : IFeedClient, IDisposable
     {
