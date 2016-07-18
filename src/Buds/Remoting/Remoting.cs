@@ -8,6 +8,7 @@ using AssemblySerialization;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Threading.Tasks;
+using System.Reactive.Linq;
 
 namespace Buds
 {
@@ -29,21 +30,21 @@ namespace Buds
         Service
     }
 
-    public class LoadSerializedAssembly : Request, IRequest<CompletionResponse>
+    public class LoadSerializedAssembly : Request, ICommand
     {
         public IReadOnlyList<byte[]> AssemblyData { get; }
 
-        public LoadSerializedAssembly(Guid senderNodeId, IReadOnlyList<byte[]> assemblyData)
-            : base(senderNodeId)
+        public LoadSerializedAssembly(Guid senderNodeId, Guid requestId, IReadOnlyList<byte[]> assemblyData)
+            : base(senderNodeId, requestId)
         {
             AssemblyData = assemblyData;
         }
     }
 
-    public class RegisterFeedListener : Request, IRequest<CompletionResponse>
+    public class RegisterFeedListener : Request, ICommand
     {
-        public RegisterFeedListener(Guid senderNodeId, string listenerType, string messageType, string topic)
-            : base(senderNodeId)
+        public RegisterFeedListener(Guid senderNodeId, Guid requestId, string listenerType, string messageType, string topic)
+            : base(senderNodeId, requestId)
         {
             ListenerType = listenerType;
             MessageType = messageType;
@@ -54,16 +55,16 @@ namespace Buds
         public string ListenerType { get; set; }
         public string MessageType { get; }
 
-        public static RegisterFeedListener Create<TListener, TMessage>(Guid senderNodeId, string topic = null) where TListener : IListener<TMessage>
+        public static RegisterFeedListener Create<TListener, TMessage>(Guid senderNodeId, Guid requestId, string topic = null) where TListener : IListener<TMessage>
         {
-            return new RegisterFeedListener(senderNodeId, typeof(TListener).FullName, typeof(TMessage).FullName, topic);
+            return new RegisterFeedListener(senderNodeId, requestId, typeof(TListener).FullName, typeof(TMessage).FullName, topic);
         }
     }
 
-    public class RegisterServiceListener : Request, IRequest<CompletionResponse>
+    public class RegisterServiceListener : Request, ICommand
     {
-        public RegisterServiceListener(Guid senderNodeId, string listenerType, string requestType, string responseType, string name)
-            : base(senderNodeId)
+        public RegisterServiceListener(Guid senderNodeId, Guid requestId, string listenerType, string requestType, string responseType, string name)
+            : base(senderNodeId, requestId)
         {
             ListenerType = listenerType;
             Name = name;
@@ -76,12 +77,12 @@ namespace Buds
         public string RequestType { get; }
         public string ResponseType { get; }
 
-        public static RegisterServiceListener Create<TListener, TRequest, TResponse>(Guid senderNodeId, string name)
+        public static RegisterServiceListener Create<TListener, TRequest, TResponse>(Guid senderNodeId, Guid requestId, string name)
             where TListener : IListener<TRequest, TResponse> 
             where TRequest : Request, IRequest<TResponse> 
             where TResponse : Response
         {
-            return new RegisterServiceListener(senderNodeId, typeof(TListener).FullName, typeof(TRequest).FullName, typeof(TResponse).FullName, name);
+            return new RegisterServiceListener(senderNodeId, requestId, typeof(TListener).FullName, typeof(TRequest).FullName, typeof(TResponse).FullName, name);
         }
     }
 
@@ -89,9 +90,10 @@ namespace Buds
     {
         public const string ASSM_LOAD = "remote/asm";
         public const string FEED_REGISTRATION = "remote/feed";
-        public const string SERVICE_REGISTRATION_PREFIX = "remote/service";
+        public const string SERVICE_REGISTRATION = "remote/service";
 
-        readonly IDictionary<string, IDisposable> _handlers = new ConcurrentDictionary<string, IDisposable>();
+        readonly IDictionary<string, IDisposable> _subscriptions = new ConcurrentDictionary<string, IDisposable>();
+        readonly ConcurrentBag<Assembly> _assemblies = new ConcurrentBag<Assembly>();
         readonly IBus _bus;
 
         // ReSharper disable once SuggestBaseTypeForParameter
@@ -106,7 +108,7 @@ namespace Buds
             {
                 _bus.RegisterService<LoadSerializedAssembly>(ASSM_LOAD, LoadAssemblies),
                 _bus.RegisterService<RegisterFeedListener>(FEED_REGISTRATION, HandleFeedRegistration),
-                _bus.RegisterService<RegisterServiceListener>(SERVICE_REGISTRATION_PREFIX, HandleServiceRegistration)
+                _bus.RegisterService<RegisterServiceListener>(SERVICE_REGISTRATION, HandleServiceRegistration)
             };
         }
 
@@ -114,30 +116,36 @@ namespace Buds
         {
             if (msg.SenderNodeId != _bus.NodeId)
             {
-                msg.AssemblyData.DeserializeAndLoadAssemblyGraph();
+                _assemblies.Add(msg.AssemblyData.DeserializeAndLoadAssemblyGraph().Last());
             }
+        }
+
+        Type FindTypeInLoadedAssemblies(string typeName)
+        {
+            return _assemblies.Select(a => a.GetType(typeName)).Single(t => t != null);
         }
 
         async Task HandleFeedRegistration(RegisterFeedListener msg)
         {
-            var listenerType = Type.GetType(msg.ListenerType);
+            var topic = msg.Topic;
+            var listenerType = FindTypeInLoadedAssemblies(msg.ListenerType);
             var instance = (dynamic)Activator.CreateInstance(listenerType);
 
-            var feed = (IObservable<dynamic>)typeof(IFeedClient).GetTypeInfo().GetMethod(nameof(IFeedClient.GetFeed)).MakeGenericMethod(Type.GetType(msg.MessageType)).Invoke(_bus, new object[] { msg.Topic });
+            var feed = (IObservable<dynamic>)typeof(IFeedClient).GetTypeInfo().GetMethod(nameof(IFeedClient.GetFeed)).MakeGenericMethod(FindTypeInLoadedAssemblies(msg.MessageType)).Invoke(_bus, new object[] { topic });
 
             IDisposable existing;
-            if (_handlers.TryGetValue(msg.Topic, out existing)) existing.Dispose();
+            if (_subscriptions.TryGetValue(topic ?? "", out existing)) existing.Dispose();
 
-            _handlers[msg.Topic] = feed.Subscribe(i => instance.Receive(i));
+            _subscriptions[topic ?? ""] = feed.Subscribe(i => instance.Receive(i));
         }
 
         async Task HandleServiceRegistration(RegisterServiceListener msg)
         {
-            var listenerType = Type.GetType(msg.ListenerType);
+            var listenerType = FindTypeInLoadedAssemblies(msg.ListenerType);
             var instance = (IListener<dynamic>)Activator.CreateInstance(listenerType);
 
             Func<dynamic, dynamic> f = req => instance.Receive(req);
-            var registration = (IDisposable)typeof(IServiceRegistry).GetTypeInfo().GetMethod(nameof(IServiceRegistry.RegisterService)).MakeGenericMethod(Type.GetType(msg.RequestType), Type.GetType(msg.ResponseType)).Invoke(_bus, new object[]
+            var registration = (IDisposable)typeof(IServiceRegistry).GetTypeInfo().GetMethod(nameof(IServiceRegistry.RegisterService)).MakeGenericMethod(FindTypeInLoadedAssemblies(msg.RequestType), FindTypeInLoadedAssemblies(msg.ResponseType)).Invoke(_bus, new object[]
             {
                 msg.Name,
                 f

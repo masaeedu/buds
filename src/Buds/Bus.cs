@@ -46,10 +46,21 @@ namespace Buds
             return RegisterService(name, handler);
         }
 
+        async Task IServiceClient.CallService<TRequest>(string name, TRequest request)
+        {
+            await CallService<TRequest, Unit>(name, request).ToList();
+        }
+
         IObservable<TResponse> IServiceClient.CallService<TRequest, TResponse>(string name, TRequest request)
         {
+            return CallService<TRequest, TResponse>(name, request);
+        }
+
+        IObservable<TResponse> CallService<TRequest, TResponse>(string name, TRequest request)
+            where TRequest : Request, IRequest<TResponse>
+        {
             var replies = _client.GetFeed<TResponse>($"{RESPONSE_TOPIC_PREFIX}/{request.RequestId}");
-            var completion = _client.GetFeed<TResponse>($"{COMPLETION_TOPIC_PREFIX}/{request.RequestId}");
+            var completion = _client.GetFeed<CompletionResponse>($"{COMPLETION_TOPIC_PREFIX}/{request.RequestId}");
             var exceptions = _client.GetFeed<ExceptionResponse>($"{EXCEPTION_TOPIC_PREFIX}/{request.RequestId}")
                 .SelectMany(exr => Observable.Throw<TResponse>(exr.Exception));
 

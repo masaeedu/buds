@@ -7,18 +7,10 @@ namespace Buds.Messages
     {
         public Guid RequestId { get; }
 
-        protected Request(Guid senderNodeId, Guid? requestId = null)
+        protected Request(Guid senderNodeId, Guid requestId)
             : base(senderNodeId)
         {
-            RequestId = requestId ?? Guid.NewGuid();
-        }
-    }
-
-    public class FireAndForgetRequest : Request, IRequest<CompletionResponse>
-    {
-        public FireAndForgetRequest(Guid senderNodeId, Guid? requestId = null)
-            : base(senderNodeId, requestId)
-        {
+            RequestId = requestId;
         }
     }
 }

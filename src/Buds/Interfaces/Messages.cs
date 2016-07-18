@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Buds.Messages;
+using System;
+using System.Reactive;
 
 namespace Buds.Interfaces
 {
@@ -19,6 +21,11 @@ namespace Buds.Interfaces
     public interface IRequest<TResponse> : IRequest
     {
         
+    }
+
+    public interface ICommand : IRequest<Unit>
+    {
+
     }
 
     public interface IResponse : IMessage, IPertainsToRequest

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Buds.Messages;
+using System.Reactive;
 
 namespace Buds.Interfaces
 {
@@ -16,6 +17,8 @@ namespace Buds.Interfaces
 
     public interface IServiceClient : IRepresentNode
     {
+        Task CallService<TRequest>(string name, TRequest request)
+            where TRequest : Request, IRequest<Unit>;
         IObservable<TResponse> CallService<TRequest, TResponse>(string name, TRequest request)
             where TRequest : Request, IRequest<TResponse>
             where TResponse : Response;

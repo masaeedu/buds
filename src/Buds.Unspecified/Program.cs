@@ -12,7 +12,7 @@ namespace Buds.Unspecified
             using (var feedClient = FeedClient.Create(id))
             {
                 var bus = Bus.Create(feedReg, feedClient);
-                bus.Debug();
+
                 var remoting = new RemotingAgent(bus);
 
                 using (remoting.Run())

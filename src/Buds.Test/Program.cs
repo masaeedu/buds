@@ -20,7 +20,6 @@ namespace Buds.Test
             using (var feedClient = FeedClient.Create(selfId))
             {
                 IBus bus = Bus.Create(feedReg, feedClient);
-                bus.Debug();
 
                 var remoteBoxes = bus.GetFeed<Heartbeat>()
                     .Where(hb => hb.SenderNodeId != selfId)
@@ -30,14 +29,13 @@ namespace Buds.Test
                     .GetAwaiter()
                     .GetResult();
 
-                bus.CallService<LoadSerializedAssembly, CompletionResponse>(RemotingAgent.ASSM_LOAD, new LoadSerializedAssembly(bus.NodeId, Assembly.GetEntryAssembly().Serialize())).LastAsync().GetAwaiter().GetResult();
-                bus.RegisterFeed(Observable.Interval(TimeSpan.FromSeconds(3))
-                    .Select(_ => new Foo(bus.NodeId)));
+                // Load assemblies in remote session
+                bus.CallService(RemotingAgent.ASSM_LOAD, new LoadSerializedAssembly(bus.NodeId, Guid.NewGuid(), Assembly.GetEntryAssembly().Serialize())).GetAwaiter().GetResult();
 
-                Console.WriteLine($"Hostnames: {remoteBoxes.Select(hb => hb.HostName).ToArray()} are now online!");
-                bus.CallService<RegisterFeedListener, CompletionResponse>(RemotingAgent.FEED_REGISTRATION, RegisterFeedListener.Create<FooListener, Foo>(bus.NodeId));
-
-                Console.ReadLine();
+                // Register remote listener and send it a message
+                Console.WriteLine($"Hosts: {string.Join(", ", remoteBoxes.Select(hb => hb.HostName).ToArray())} now online!");
+                bus.CallService(RemotingAgent.FEED_REGISTRATION, RegisterFeedListener.Create<FooListener, Foo>(bus.NodeId, Guid.NewGuid())).GetAwaiter().GetResult();
+                bus.Send(new Foo(bus.NodeId));
             }
         }
     }
