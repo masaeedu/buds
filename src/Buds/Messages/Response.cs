@@ -1,4 +1,5 @@
 ﻿using System;
+using Buds.Interfaces;
 
 namespace Buds.Messages
 {

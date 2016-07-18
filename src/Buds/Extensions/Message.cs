@@ -1,9 +1,10 @@
 ﻿using System;
+using Buds.Interfaces;
 using Buds.Messages;
 
-namespace Buds
+namespace Buds.Extensions
 {
-    public static class BusExtensions
+    public static class MessageExtensions
     {
         public static CompletionResponse CompletedBy(this IRequest<CompletionResponse> request, Guid responder)
         {

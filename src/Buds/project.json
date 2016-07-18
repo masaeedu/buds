@@ -1,15 +1,17 @@
 {
-  "version": "1.0.0-*",
+  "version": "0.1.0-*",
 
   "dependencies": {
-    "NetMQ": "4.0.0.2-rc2",
+    "AssemblySerialization": "1.0.0-*",
+    "NetMQ": "4.0.0.1-rc1",
     "Newtonsoft.Json": "9.0.1",
     "System.Collections.Immutable": "1.2.0",
-    "System.Reactive": "3.0.0"
+    "System.Reactive": "3.0.0",
+    "System.Runtime.Loader": "4.0.0"
   },
 
   "frameworks": {
-    "netstandard1.3": {
+    "netstandard1.6": {
       "imports": "dnxcore50"
     }
   },

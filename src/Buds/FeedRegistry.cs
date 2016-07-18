@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Text;
+using Buds.Interfaces;
 using Buds.Messages;
 using NetMQ;
 using NetMQ.Sockets;
@@ -16,9 +17,8 @@ namespace Buds
     public class FeedRegistry : IFeedRegistry, IDisposable
     {
         public const int DISCOVERY_PORT = 56001;
-        public const int DEFAULT_HEARTBEAT_INTERVAL = 10;
-
-        public Guid NodeId { get; }
+        public const int DEFAULT_HEARTBEAT_INTERVAL = 1;
+        public const string HEARTBEAT_TOPIC = "p2p/hb";
 
         readonly CompositeDisposable _disposal;
         readonly int _pubPort;
@@ -35,38 +35,12 @@ namespace Buds
             _heartbeatInterval = heartbeatInterval;
             _pub = pub;
             _beacon = beacon;
-            _disposal = new CompositeDisposable() { disposal };
+            _disposal = new CompositeDisposable
+            {
+                disposal
+            };
 
             InitializeHeartbeating();
-        }
-
-        void InitializeHeartbeating()
-        {
-            // Send a heartbeat whenever governor subject receives a value
-            var i = 0;
-            var beats = _heartbeatGovernor
-                .Select(_ => new Heartbeat(NodeId, i++, _pubPort, DateTime.Now));
-
-            // Send heartbeats over UDP beacon broadcasts
-            var beaconBinding = beats
-                .Synchronize()
-                .Subscribe(BroadcastHeartbeat);
-
-            // Also register heartbeats as a PUB feed
-            // TODO: Eliminate duplication of heartbeat feed over PUB and get client to just consume beacon feed
-            var pubBinding = RegisterFeed(beats, "p2p/hb");
-
-            // Start heartbeating periodically
-            var intervalBinding = Observable.Return<long>(0)
-                .Merge(Observable.Interval(_heartbeatInterval))
-                .Select(_ => Unit.Default)
-                .Subscribe(_heartbeatGovernor);
-
-            _disposal.Add(new CompositeDisposable {
-                intervalBinding,
-                pubBinding,
-                beaconBinding
-            });
         }
 
         public void Dispose()
@@ -74,26 +48,54 @@ namespace Buds
             _disposal.Dispose();
         }
 
+        public Guid NodeId { get; }
+
         public IDisposable RegisterFeed<T>(IObservable<T> feed, string topic = null)
         {
             var header = CreateMessageHeader(typeof(T), topic);
 
-            return feed
-                .Synchronize(_publishGate)
+            return feed.Synchronize(_publishGate)
                 .Subscribe(msg => PublishMessage(header, msg));
         }
 
         public IDisposable RegisterFeed<T>(IObservable<T> feed, Func<T, string> topicSelector)
         {
-            return feed
-                .Synchronize(_publishGate)
+            return feed.Synchronize(_publishGate)
                 .Subscribe(msg => PublishMessage(CreateMessageHeader(msg.GetType(), topicSelector(msg)), msg));
+        }
+
+        void InitializeHeartbeating()
+        {
+            // Send a heartbeat whenever governor subject receives a value
+            var i = 0;
+            var beats = _heartbeatGovernor.Select(_ => new Heartbeat(NodeId, i++, _pubPort, DateTime.Now, Environment.MachineName)).Publish().RefCount();
+
+            // Send heartbeats over UDP beacon broadcasts
+            var beaconBinding = beats.Synchronize()
+                .Subscribe(BroadcastHeartbeat);
+
+            // Also register heartbeats as a PUB feed
+            // TODO: Eliminate duplication of heartbeat feed over PUB and get client to just consume beacon feed
+            var pubBinding = RegisterFeed(beats, HEARTBEAT_TOPIC);
+
+            // Start heartbeating periodically
+            var intervalBinding = Observable.Return<long>(0)
+                .Merge(Observable.Interval(_heartbeatInterval))
+                .Select(_ => Unit.Default)
+                .Subscribe(_heartbeatGovernor);
+
+            _disposal.Add(new CompositeDisposable
+            {
+                intervalBinding,
+                pubBinding,
+                beaconBinding
+            });
         }
 
         void PublishMessage(string header, object msg)
         {
             _pub.SendMoreFrame(header)
-                .SendFrame((string)SerializationExtensions.SerializeAsJson((dynamic)msg));
+                .SendFrame((string) SerializationExtensions.SerializeAsJson((dynamic) msg));
         }
 
         void BroadcastHeartbeat(Heartbeat h)
@@ -107,7 +109,8 @@ namespace Buds
             while (type != null)
             {
                 hierarchy.Push(type);
-                type = type.GetTypeInfo().BaseType;
+                type = type.GetTypeInfo()
+                    .BaseType;
             }
 
             return hierarchy;
@@ -136,7 +139,10 @@ namespace Buds
             var beacon = new NetMQBeacon();
             beacon.ConfigureAllInterfaces(DISCOVERY_PORT);
 
-            var poller = new NetMQPoller() { pub };
+            var poller = new NetMQPoller
+            {
+                pub
+            };
             poller.RunAsync();
 
             var reg = new FeedRegistry(id.Value, port, heartbeatInterval.Value, pub, beacon, new CompositeDisposable
