@@ -12,11 +12,6 @@ namespace Buds
             });
         }
 
-        //public static string SerializeAsJson(this ExceptionResponse message)
-        //{
-        //    return SerializeAsJson((object)new ExceptionResponse(message.SenderNodeId, message.DestinationNodeId, message.RequestId, new SerializableException(message.Exception.Message, message.Exception)));
-        //}
-
         public static T DeserializeFromJson<T>(this string data)
         {
             return JsonConvert.DeserializeObject<T>(data, new JsonSerializerSettings()
