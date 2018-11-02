@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using Buds.Messages;
-using System.Reactive.Linq;
-using Buds.Extensions;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices.ComTypes;
+
 using AssemblySerialization;
+
+using Buds.Extensions;
 using Buds.Interfaces;
+using Buds.Messages;
 
 namespace Buds.Test
 {
